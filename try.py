@@ -11,7 +11,12 @@ import numpy as np
 from pandas import Series, DataFrame
 from sklearn import preprocessing
 
+from sklearn.cross_validation import train_test_split
+
 gc.collect()
+
+#%%
+from keras.utils import np_utils
 
 #%%
 Y16Q2 = hdd_all #通用为Q2
@@ -135,11 +140,17 @@ temp.drop(col,axis=1,inplace=True)
 tt = failed_disk_sort[failed_disk_sort['serial_number']=='Z300GZ0W']
 #%%
 tem = temp[temp['status'].isnull()]
+#%%
+Y16 = pd.read_pickle('/home/wikki/Documents/processed/Y16')
 #%%注意Y16的index少掉一位，要重排
 dr = ['smart_183_normalized','smart_183_raw','date','failure','left_day']
-temp = Y16.drop(dr,axis=1)
-temp = temp.reset_index(drop=True)
-npdata = np.array(temp)
+npdata = Y16.drop(dr,axis=1)
+npdata = np.array(npdata)
+#%%对各个feature的数值归一化
+temp = npdata[:,1:-1]        
+min_max_1 = preprocessing.MinMaxScaler()
+temp = min_max_1.fit_transform(temp)
+npdata[:,1:-1] = temp
 #%%查找每个硬盘最后一条日志对应的行数
 serial = []
 idx = []
@@ -172,10 +183,39 @@ for i in range(0,len(data)):
     result = data[i]
     result = np.pad(result, ((0,20-result.shape[0]),(0,0)), 'constant', constant_values=0)
     data[i] = result
-data = np.array(data)
+x_data = np.array(data)
+#%%划分测试集与训练集
+X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
+#%%
+temp = npdata[:,1]
+temp.reshape(-1,1)
+temp = preprocessing.minmax_scale(temp)
 #%%
 tt = data[45]
 tt = tt[:,1:]
 print(tt)
 min_max_scaler = preprocessing.MinMaxScaler()
 X_train_minmax = min_max_scaler.fit_transform(tt)
+#%%
+Y16.to_pickle('/home/wikki/Documents/processed/Y16.pkl')
+Y17.to_pickle('/home/wikki/Documents/processed/Y17.pkl')
+#%%
+x_data.save('x_data.npy',a)
+#%%
+Y16 = pd.read_pickle('/home/wikki/Documents/processed/Y16')
+#%%
+Y16.to_csv('Y16.csv')
+Y17.to_csv('Y17.csv')
+#%%
+foo = np.array(df)
+fo1 = np.array(df)
+fo1[0,0] = 2017
+ll = []
+ll.append(foo)
+ll.append(fo1)
+#%%
+dummy_y = np_utils.to_categorical(y_data, num_classes=6)
+dummy_y = dummy_y[:,1:]
+#%%
+tt = np.array([[0.1, 0.2],[0.3, 0.4],[0.5, 0.6]])
+temp = np.argmax(tt,axis=1)
