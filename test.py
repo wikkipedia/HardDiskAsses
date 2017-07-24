@@ -24,7 +24,7 @@ from keras.layers.recurrent import *
 from keras.layers.normalization import *
 
 
-def load_data(file_path, seq_window):
+def load_data(file_path, params):
     Y16 = pd.read_pickle(file_path)
     dr = ['smart_183_normalized','smart_183_raw','date','failure','left_day']
     npdata = Y16.drop(dr,axis=1)
@@ -60,7 +60,7 @@ def load_data(file_path, seq_window):
             now = npdata[i,0]
             last = last_idx[now]
         if npdata[i,-1]<7:
-            end = min(i+19, last) + 1
+            end = min(i+params['seq_window']-1, last) + 1
             sliced = npdata[i:end,1:-1]
             x_data.append(sliced)
             y_data.append(npdata[i,-1])
@@ -70,7 +70,7 @@ def load_data(file_path, seq_window):
     data = x_data
     for i in range(0,len(data)):
         result = data[i]
-        result = np.pad(result, ((0,20-result.shape[0]),(0,0)), 'constant', constant_values=0)
+        result = np.pad(result, ((0,params['seq_window']-result.shape[0]),(0,0)), 'constant', constant_values=0)
         data[i] = result
     x_data = np.array(data)
     del data
@@ -90,6 +90,7 @@ def load_data(file_path, seq_window):
 
 def attention_layer(inputs, layer):
     attention = layer(inputs)
+    attention = Dense(1, use_bias=False)(attention)
     attention = Flatten()(attention)
     attention = Activation('softmax')(attention)
     attention = RepeatVector(params['rnn_dim'])(attention)
@@ -110,8 +111,9 @@ def sum_hidden(inputs):
 def build_model(params):
     #rnn_layer = GRU(params['rnn_dim'], return_sequences=True, kernel_regularizer=l2(params['l2']), kernel_initializer='he_normal', implementation=2)
     rnn_layer = GRU(params['rnn_dim'], return_sequences=True)
-    #dense = Dense(1, activation='tanh', kernel_regularizer=l2(params['l2']), kernel_initializer='he_normal')
-    dense = Dense(1, activation='tanh')
+    #rnn_layer = SimpleRNN(params['rnn_dim'], return_sequences=True)
+    #dense = Dense(params['rnn_dim'], activation='tanh', kernel_regularizer=l2(params['l2']), kernel_initializer='he_normal')
+    dense = Dense(params['rnn_dim'], activation='tanh')
 
     model_input = Input(shape=(params['seq_window'],params['feature_num']), dtype='float32', name='main_input')
     rnn_output = rnn_layer(model_input)
@@ -133,19 +135,20 @@ def build_model(params):
 
 params = {'seq_window': 20,
           'feature_num': 33,
-          'apply_attention': False,
+          'apply_attention': True,
           'l2': 0.01,
           'dropout': 0.1,
           'rnn_dim': 64,
           'n_classes': 6,
           'batch_size': 512,
-          'nb_echop': 2000}
-train_data, test_data, train_label, test_label = load_data('/home/wikki/Documents/processed/Y16', params['seq_window'])
+          'nb_echop': 3000}
+train_data, test_data, train_label, test_label = load_data('/home/jwang/Documents/processed/Y2', params)
 model = build_model(params)
 
 #using tensorboard
 tbCallBack = keras.callbacks.TensorBoard(log_dir='/tmp/keras_log', histogram_freq=0, write_graph=True, write_images=True)
+#earlyStop = keras.callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=10, mode='auto')
 
-model.fit(train_data, train_label, batch_size=params['batch_size'], nb_epoch=params['nb_echop'], callbacks=[tbCallBack], validation_split=0.11)
+model.fit(train_data, train_label, batch_size=params['batch_size'], nb_epoch=params['nb_echop'], callbacks=[tbCallBack], verbose = 2, validation_split=0.08)
 scores = model.evaluate(test_data, test_label, batch_size = params['batch_size'], verbose = 0)
 print(scores)

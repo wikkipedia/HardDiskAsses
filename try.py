@@ -141,10 +141,17 @@ tt = failed_disk_sort[failed_disk_sort['serial_number']=='Z300GZ0W']
 #%%
 tem = temp[temp['status'].isnull()]
 #%%
-Y16 = pd.read_pickle('/home/wikki/Documents/processed/Y16')
+ttt = Y2[Y2['serial_number']=='S300VLN0']
+#%%
+Y16 = pd.read_pickle('/home/jwang/Documents/processed/Y16')
+Y17 = pd.read_pickle('/home/jwang/Documents/processed/Y17')
+#%%
+frames = [Y16, Y17]
+Y2 = pd.concat(frames, ignore_index=True)
+Y2.to_pickle('/home/jwang/Documents/processed/Y2')
 #%%注意Y16的index少掉一位，要重排
 dr = ['smart_183_normalized','smart_183_raw','date','failure','left_day']
-npdata = Y16.drop(dr,axis=1)
+npdata = Y2.drop(dr,axis=1)
 npdata = np.array(npdata)
 #%%对各个feature的数值归一化
 temp = npdata[:,1:-1]        
