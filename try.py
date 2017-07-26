@@ -13,6 +13,8 @@ from sklearn import preprocessing
 
 from sklearn.cross_validation import train_test_split
 
+from keras.utils import np_utils
+
 gc.collect()
 
 #%%
@@ -141,9 +143,10 @@ tt = failed_disk_sort[failed_disk_sort['serial_number']=='Z300GZ0W']
 #%%
 tem = temp[temp['status'].isnull()]
 #%%
-ttt = Y2[Y2['serial_number']=='S300VLN0']
+#y_data = [c - 1 for c in y_data]
+y_test = np_utils.to_categorical(y_data, 6)
 #%%
-Y16 = pd.read_pickle('/home/jwang/Documents/processed/Y16')
+Y16 = pd.read_pickle('/home/jwang/Documents/processed/Y2')
 Y17 = pd.read_pickle('/home/jwang/Documents/processed/Y17')
 #%%
 frames = [Y16, Y17]
@@ -151,7 +154,7 @@ Y2 = pd.concat(frames, ignore_index=True)
 Y2.to_pickle('/home/jwang/Documents/processed/Y2')
 #%%注意Y16的index少掉一位，要重排
 dr = ['smart_183_normalized','smart_183_raw','date','failure','left_day']
-npdata = Y2.drop(dr,axis=1)
+npdata = Y16.drop(dr,axis=1)
 npdata = np.array(npdata)
 #%%对各个feature的数值归一化
 temp = npdata[:,1:-1]        
@@ -224,5 +227,19 @@ ll.append(fo1)
 dummy_y = np_utils.to_categorical(y_data, num_classes=6)
 dummy_y = dummy_y[:,1:]
 #%%
-tt = np.array([[0.1, 0.2],[0.3, 0.4],[0.5, 0.6]])
-temp = np.argmax(tt,axis=1)
+tt = np.array([[ 0.16436073,  0.1616614,   0.19381061,  0.15829226,  0.16597888,  0.15589602],[ 0.16255681,  0.16395631,  0.1929483,   0.16396037,  0.16037005,  0.15620814],[ 0.16461335,  0.16227967,  0.19619974,  0.15777504,  0.16453448,  0.15459777],[ 0.15914862,  0.16232671,  0.20141737,  0.16303335,  0.16228095,  0.15179311],[ 0.15729198,  0.16542646,  0.19662228,  0.16531138,  0.16239175,  0.15295611]])
+t1 = tt[:,:5]
+t2 = tt[:,5]
+#%%
+r = [[1,3,3]]
+r.append([1,2,5])
+r = np.asarray(r)
+tt = np.mean(r, axis=0)
+#%%
+y_true = [0, 1, 2, 0, 1, 2]
+y_pred = [0, 2, 1, 0, 0, 1]
+r = metrics.f1_score(y_true, y_pred, average=None).tolist()
+r = r + metrics.recall_score(y_true, y_pred, average=None).tolist()
+
+r.append(metrics.precision_score(y_true, y_pred, average='macro'))
+#classification_report(y_true, y_pred, average='macro')  

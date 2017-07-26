@@ -111,7 +111,9 @@ def sum_hidden(inputs):
 def build_model(params):
     #rnn_layer = GRU(params['rnn_dim'], return_sequences=True, kernel_regularizer=l2(params['l2']), kernel_initializer='he_normal', implementation=2)
     rnn_layer = GRU(params['rnn_dim'], return_sequences=True)
+    #rnn_layer = Bidirectional(GRU(params['rnn_dim'], return_sequences=True))
     #rnn_layer = SimpleRNN(params['rnn_dim'], return_sequences=True)
+
     #dense = Dense(params['rnn_dim'], activation='tanh', kernel_regularizer=l2(params['l2']), kernel_initializer='he_normal')
     dense = Dense(params['rnn_dim'], activation='tanh')
 
@@ -141,7 +143,7 @@ params = {'seq_window': 20,
           'rnn_dim': 64,
           'n_classes': 6,
           'batch_size': 512,
-          'nb_echop': 3000}
+          'nb_echop': 1}
 train_data, test_data, train_label, test_label = load_data('/home/jwang/Documents/processed/Y2', params)
 model = build_model(params)
 
@@ -152,3 +154,7 @@ tbCallBack = keras.callbacks.TensorBoard(log_dir='/tmp/keras_log', histogram_fre
 model.fit(train_data, train_label, batch_size=params['batch_size'], nb_epoch=params['nb_echop'], callbacks=[tbCallBack], verbose = 2, validation_split=0.08)
 scores = model.evaluate(test_data, test_label, batch_size = params['batch_size'], verbose = 0)
 print(scores)
+
+label_pre = model.predict(test_data[:5], batch_size=params['batch_size'], verbose=0)
+print(label_pre)
+print(type(label_pre))
