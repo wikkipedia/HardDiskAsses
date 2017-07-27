@@ -146,13 +146,13 @@ def clf_evaluate(y_true, y_pred):
 
 params = {'seq_window': 20,
           'feature_num': 33,
-          'apply_attention': False,
+          'apply_attention': True,
           'l2': 0.01,
           'dropout': 0.1,
           'rnn_dim': 64,
           'n_classes': 6,
           'batch_size': 512,
-          'nb_echop': 3}
+          'nb_echop': 2500}
 seed = 7
 np.random.seed(seed)
 
@@ -168,7 +168,7 @@ for train, test in kfold.split(feature_data, label_data):
     label_train = np_utils.to_categorical(label_data[train].tolist(), num_classes=params['n_classes'])
     label_test = np_utils.to_categorical(label_data[test].tolist(), num_classes=params['n_classes'])
 
-    model.fit(feature_data[train], label_train, batch_size=params['batch_size'], nb_epoch=params['nb_echop'], verbose=0)
+    model.fit(feature_data[train], label_train, batch_size=params['batch_size'], nb_epoch=params['nb_echop'], verbose=2)
     scores = model.evaluate(feature_data[test], label_test, batch_size=params['batch_size'], verbose=0)
     print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
     cvscores.append(scores[1] * 100)
