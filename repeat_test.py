@@ -108,7 +108,7 @@ def sum_hidden(inputs):
     return sent_representation
 
 
-def build_model(params):00000
+def build_model(params):
     #rnn_layer = GRU(params['rnn_dim'], return_sequences=True, kernel_regularizer=l2(params['l2']), kernel_initializer='he_normal', implementation=2)
     rnn_layer = GRU(params['rnn_dim'], return_sequences=True)
     #rnn_layer = Bidirectional(GRU(params['rnn_dim'], return_sequences=True))
