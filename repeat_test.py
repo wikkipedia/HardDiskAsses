@@ -27,66 +27,79 @@ from keras.layers.normalization import *
 
 def load_data(file_path, params):
     Y16 = pd.read_pickle(file_path)
-    dr = ['smart_183_normalized','smart_183_raw','date','failure','left_day']
-    npdata = Y16.drop(dr,axis=1)
+    dr = ['smart_183_normalized', 'smart_183_raw', 'date', 'failure']
+    npdata = Y16.drop(dr, axis=1)
     npdata = np.array(npdata)
     del Y16
-    
-    #feature normalization
-    temp = npdata[:,1:-1]        
+
+    # feature normalization
+    temp = npdata[:, 1:-2]
     min_max_scaler = preprocessing.MinMaxScaler()
     temp = min_max_scaler.fit_transform(temp)
-    npdata[:,1:-1] = temp
-    
-    #find the last log idx of each hard disk
+    npdata[:, 1:-2] = temp
+
+    # find the last log idx of each hard disk
     serial = []
     idx = []
     pre = 'begin'
     l = len(npdata)
     for i in range(0, l):
-        if npdata[i,0] != pre:
+        if npdata[i, 0] != pre:
             serial.append(pre)
-            idx.append(i-1)
-            pre = npdata[i,0]
+            idx.append(i - 1)
+            pre = npdata[i, 0]
     idx.append(i)
     serial.append(pre)
-    last_idx = dict(zip(serial,idx))
-    
-    #create the data set with the sequence window = seq_window
+    last_idx = dict(zip(serial, idx))
+
+    # create the data set with the sequence window = seq_window
     now = 'begin'
     x_data = []
-    y_data = []
-    for i in range(0,l):
-        if npdata[i,0] != now:
-            now = npdata[i,0]
+    other_data = []
+    serial_data = []
+    for i in range(0, l):
+        if npdata[i, 0] != now:
+            now = npdata[i, 0]
             last = last_idx[now]
-        if npdata[i,-1]<7:
-            end = min(i+params['seq_window']-1, last) + 1
-            sliced = npdata[i:end,1:-1]
+        if npdata[i, -1] < 7:
+            end = min(i + params['seq_window'] - 1, last) + 1
+            sliced = npdata[i:end, 1:-2]
             x_data.append(sliced)
-            y_data.append(npdata[i,-1])
+            serial_data.append(npdata[i, 0])
+            other_data.append(npdata[i, -2:])
     del npdata
-    
-    #padding with zeros
+    serial_data = np.asarray(serial_data)
+    serial_data = serial_data.reshape(serial_data.shape[0], 1)
+    other_data = np.concatenate((serial_data, other_data), axis=1)
+
+    # padding with zeros
     data = x_data
-    for i in range(0,len(data)):
+    for i in range(0, len(data)):
         result = data[i]
-        result = np.pad(result, ((0,params['seq_window']-result.shape[0]),(0,0)), 'constant', constant_values=0)
+        result = np.pad(result, ((0, params['seq_window'] - result.shape[0]), (0, 0)), 'constant', constant_values=0)
         data[i] = result
     x_data = np.array(data)
     del data
-    y_data = [c - 1 for c in y_data]  #make the label start from 0
-    
-    #split train/test data
+
+    # split train/test data
     x_data = x_data.astype(np.float32)
-    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, random_state=42)
+    x_train, x_test, y_train, y_test = train_test_split(x_data, other_data, test_size=0.1, random_state=42)
     gc.collect()
 
-    #encode outputs
-    y_train = np_utils.to_categorical(y_train, num_classes=params['n_classes'])
-    y_test = np_utils.to_categorical(y_test, num_classes=params['n_classes'])
+    # create idx and labels
+    train_label = y_train[:, -1].tolist()
+    test_idx = y_test[:, 0:2]
+    test_label = y_test[:, -1].tolist()
 
-    return x_train, x_test, y_train, y_test
+    # make the label start from 0
+    train_label = [c - 1 for c in train_label]
+    test_label = [d - 1 for d in test_label]
+
+    # encode outputs
+    train_label = np_utils.to_categorical(train_label, num_classes=params['n_classes'])
+    test_label = np_utils.to_categorical(test_label, num_classes=params['n_classes'])
+
+    return x_train, x_test, train_label, test_label, test_idx
 
 
 def attention_layer(inputs, layer):
@@ -151,19 +164,20 @@ def clf_evaluate(y_true, y_pred):
 
 params = {'seq_window': 20,
           'feature_num': 33,
-          'apply_attention': False,
+          'apply_attention': True,
           'l2': 0.01,
           'dropout': 0.1,
           'rnn_dim': 64,
           'n_classes': 6,
           'batch_size': 512,
-          'nb_echop': 10,
+          'nb_echop': 100,
           'repeat_num': 3}
 
-train_data, test_data, train_label, test_label = load_data('./Y2', params)
+train_data, test_data, train_label, test_label, test_idx = load_data('./Y2', params)
 
 cvscores = []
 clf_score = []
+max_acc = 0
 for repeat in range(params['repeat_num']):
     #np.random.seed(repeat)
     model = build_model(params)
@@ -172,8 +186,16 @@ for repeat in range(params['repeat_num']):
     print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
     cvscores.append(scores[1] * 100)
     label_pred = model.predict(test_data, batch_size=params['batch_size'], verbose=0)
+    if scores[1]>max_acc:
+        max_acc = scores[1]
+        best_pred = label_pred
     clf_score.append(clf_evaluate(test_label, label_pred))
 print("%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
 clf_score = np.asarray(clf_score)
 result = np.mean(clf_score, axis=0)
 print(result)
+np.save("best_output.npy", best_pred)
+best_pred = np.argmax(best_pred, axis=1)
+best_pred = best_pred.reshape(best_pred.shape[0],1)
+pred_output = np.concatenate((test_idx, best_pred), axis=1)
+np.save("pred_output.npy", pred_output)
